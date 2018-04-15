@@ -1,0 +1,237 @@
+---
+title: "Wine Analysis"
+author: "Sushmitha K"
+date: "April 14, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("E:/Extra/Wine ratings")
+wine <- read.csv("winemag-data_first150k.csv",stringsAsFactors = F,encoding = "UTF-8")
+library(dplyr)
+library(ggplot2)
+library(knitr)
+```
+
+#Exploring Wine Ratings data set using EDA techiniques by using following packages
+
+- dplyr
+- ggplot2
+
+
+###Dropping 2 unwanted columns
+
+```{r}
+wine <- wine[,-c(1,3)]
+
+```
+###total number of wines per country
+###grouping by countries and then finding the count 
+
+```{r message=FALSE, warning=FALSE}
+countries_count = wine %>% group_by(country) %>% summarise(count = n()) %>% arrange(desc(count))
+```
+
+
+###top 10 mass producing countries
+###grouping by countries and then finding the count ,arranging them in decending order and finding the top 10 countries
+
+```{r}
+selected_countries = wine %>% group_by(country) %>% summarise(count = n()) %>% arrange(desc(count)) %>% top_n(10) %>% select(country)
+kable(selected_countries)
+
+kable(class(selected_countries))
+```
+
+
+###converting the single column data frame into a vector
+
+```{r}
+selected_countries = as.character(selected_countries$country)
+kable(class(selected_countries))
+```
+
+
+###average points of top 10 mass producing countries
+###filtering top 10 countries and displaying their average points
+
+```{r}
+select_avg_point = wine %>%group_by(country) %>% filter(country %in% selected_countries)%>% summarize(avg_points = mean(points))%>%arrange(desc(avg_points))%>% head(10)
+
+```
+
+#points of top 10 mass producing countries
+#filtering top 10 countries and displaying their points
+```{r}
+select_point = wine %>% filter(country %in% selected_countries) %>% select(country,points) %>% arrange(country)
+```
+
+
+###To find if points and price are correlated 
+
+```{r message=FALSE, warning=FALSE}
+
+ggplot(wine,aes(points,price)) + geom_point() + geom_smooth()
+```
+
+
+###Distribution of top 10 wine producing countries wrt points
+
+```{r}
+ggplot(select_point,aes(x = reorder(country,points,median),y = points)) +geom_boxplot(aes(fill = country)) +xlab("country") +ylab("points") +ggtitle("Distribution of top 10 wine producing countries") + theme(plot.title = element_text(hjust = .5))
+```
+
+
+###Other top 10 producers of large quantity but low quality
+
+```{r}
+
+kable(wine %>% filter(!(country %in% selected_countries)) %>% group_by(country) %>% summarise(median = median(points))%>% arrange(desc(median)))
+```
+
+
+###Top countries with high points 
+
+```{r}
+top = wine %>% group_by(country) %>% summarise(median = median(points)) %>% arrange(desc(median))
+kable(top)
+top = as.character(top$country)
+```
+
+
+###Top countries which are both high quantity and high quality
+###10 countries both in selected countries and top list
+
+```{r}
+both = intersect(top,selected_countries)
+kable(both)
+```
+
+
+###Top 10 high quality
+
+```{r}
+top = top[1:10]
+kable(top)
+```
+
+
+###Top countries which are both high quantity and high quality
+
+```{r}
+both = intersect(top,selected_countries)
+kable(both)
+```
+
+
+###Top countries which are both high quantity or high quality
+
+```{r}
+not = setdiff(top,selected_countries)
+kable(not)
+```
+
+
+###Grouping wrt the type of grapes
+
+```{r}
+topwine = wine %>% group_by(variety) %>% summarise(number = n()) %>% arrange(desc(number)) %>% head(10)
+kable(topwine)
+```
+
+
+###Convert to a character vector
+
+```{r}
+topwine = as.character(topwine$variety)
+```
+
+
+###Top 10 varieties with high points
+
+```{r}
+wine %>% filter(variety %in% topwine) %>% group_by(variety) %>% summarise(median = median(points)) %>% ggplot(aes(x = reorder(variety,median),y = median)) + geom_col(aes(fill = variety)) +xlab("variety") +ylab("Median Point") +scale_x_discrete(labels = abbreviate)
+```
+
+
+###Highly rated but low cost
+
+```{r}
+top15p = wine %>% arrange(desc(points)) %>% filter(points > quantile(points,prob = .85))
+
+cheapest15p = wine %>% arrange(price) %>% head(nrow(top15p)) 
+
+
+goodvalue = intersect(top15p,cheapest15p)
+kable(goodvalue$country)
+
+```
+
+###Creating new column by using mutate
+###Adding a new column called PPratio ,ie points to price ratio tp the existing data frame
+
+```{r}
+wine = wine %>% mutate(ppratio = points/price)
+
+```
+
+###Transmute
+###Creates new data frame with only the newly created column
+
+```{r}
+wine1 = wine %>% transmute(ppratio = points/price)
+
+```
+
+
+###Data imputation
+
+```{r}
+wine %>% group_by(country)%>% summarise(total = n())
+
+wine[wine$country == "",]#displaying all the rows which have no values
+
+# wine$country =ifelse(wine$designation == "Askitikos","Greece",wine$country)
+
+# wine$country =ifelse(wine$designation == "Piedra Feliz","Chile",wine$country)
+
+# wine$country =ifelse(wine$winery == "Büyülübag","Turkey",wine$country)
+
+#or
+
+# wine$country =ifelse(wine$X == 1440 , "Turkey",wine$country)
+
+```
+
+
+###Joining 2 datasets
+```{r}
+newwine = wine %>% group_by(country) %>% summarise(total = n()) %>% arrange(desc(total)) %>% arrange(desc(total))
+
+subset1 = head(wine)
+
+subset2 = head(newwine)
+
+### full joint
+full = full_join(subset1,subset2)
+
+full
+
+###inner joint
+inner = inner_join(subset1,subset2)
+
+inner
+
+
+###left joint
+left = left_join(subset1,subset2)
+
+left
+
+###right joint
+right = right_join(subset1,subset2)
+
+right
+```
+
